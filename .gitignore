@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+build/
+extracted/
+*.apworld
+
+# fichiers du jeu : ne jamais les publier
+*.dat
+*.pak
+*.cdb
