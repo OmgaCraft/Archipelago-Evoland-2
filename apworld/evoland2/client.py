@@ -157,13 +157,13 @@ class Evoland2Context(CommonContext):
             for name in os.listdir(os.path.join(self.ap_dir, "checks")):
                 os.remove(os.path.join(self.ap_dir, "checks", name))
             self.found_keys.clear()
-            with open(seed_file, "w") as f:
+            with open(seed_file, "w", newline="\n") as f:
                 f.write(seed_id)
         config = f"{session_id(self.seed_name, self.slot):08d},"
         if self.stars_required:
             config += f"stars={self.stars_required},"  # portail du boss final bloqué sans ces étoiles
         config += ",".join(self.location_keys) + ","
-        with open(os.path.join(self.ap_dir, "config.txt"), "w", encoding="utf-8") as f:
+        with open(os.path.join(self.ap_dir, "config.txt"), "w", encoding="utf-8", newline="\n") as f:
             f.write(config)
         self.write_items()
 
@@ -181,7 +181,9 @@ class Evoland2Context(CommonContext):
         # Écriture directe : le jeu ignore une ligne incomplète et relit le fichier régulièrement.
         for _ in range(10):
             try:
-                with open(os.path.join(self.ap_dir, "items.txt"), "w", encoding="utf-8") as f:
+                # newline="\n" : en mode texte, Windows écrirait « \r\n » et le jeu lirait « Objet\r »
+                # (objet inconnu → crash « Null access » dans Logic.quickAddItem).
+                with open(os.path.join(self.ap_dir, "items.txt"), "w", encoding="utf-8", newline="\n") as f:
                     f.write(content)
                 return
             except PermissionError:

@@ -50,7 +50,7 @@ def log(msg: str) -> None:
 
 def main() -> None:
     os.makedirs(os.path.join(AP, "checks"), exist_ok=True)
-    with open(os.path.join(AP, "config.txt"), "w", encoding="utf-8") as f:
+    with open(os.path.join(AP, "config.txt"), "w", encoding="utf-8", newline="\n") as f:
         f.write(SESSION + "," + ",".join(sorted(vanilla)) + ",")
     items_path = os.path.join(AP, "items.txt")
     items = open(items_path, encoding="utf-8").read().split("\n") if os.path.exists(items_path) else []
@@ -67,7 +67,7 @@ def main() -> None:
             log(f"CHECK {key} -> {record or 'inconnu (contenu d origine gardé par le jeu)'}")
             if record:
                 items.append(record)
-                with open(items_path, "w", encoding="utf-8") as f:
+                with open(items_path, "w", encoding="utf-8", newline="\n") as f:
                     f.write("\n".join(items))
                 log(f"  -> renvoyé ({len(items)} au total)")
         time.sleep(0.3)

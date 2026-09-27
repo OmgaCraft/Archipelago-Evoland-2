@@ -5,7 +5,7 @@ Monde [Archipelago](https://archipelago.gg) (randomizer multi-jeux) pour **Evola
 
 *English version below.*
 
-**Version 0.1.0** : première version jouable, en test.
+**Version 0.1.1** : première version jouable, en test (voir le journal des versions en bas).
 
 ## Ce qui est mélangé
 
@@ -82,12 +82,19 @@ puis lancer `tools/evo2_catalog.py`, `tools/evo2_build_locations.py` et `tools/e
   [Evoland 2 Items, Flags and Logic](https://docs.google.com/spreadsheets/d/1z8olt25UQ6uwJfjUcqqZWrySkZK8X4EECW4i_wOoP7k).
 - Outils : [crashlink](https://pypi.org/project/crashlink/), [hlbc](https://github.com/Gui-Yom/hlbc).
 
+## Journal des versions
+
+- **0.1.1** : correctif du client — `items.txt` était écrit avec des fins de ligne Windows (`
+`) ;
+  le jeu plantait (« Null access » dans `Logic.quickAddItem`) dès le 2ᵉ objet reçu.
+- **0.1.0** : première version (143 locations, 2 objectifs, logique vérifiée dans les scripts).
+
 ---
 
 # Archipelago – Evoland 2 (English)
 
 [Archipelago](https://archipelago.gg) world for **Evoland 2** in **Evoland Legendary Edition** (Steam).
-**Version 0.1.0**, first playable test version.
+**Version 0.1.1**, first playable test version.
 
 - **143 locations** (every chest, quest reward and ground pickup), shuffled with the whole multiworld,
   story items included. Exceptions: the prison chest returning your weapon, Mr Mudwell's gold deposit,
