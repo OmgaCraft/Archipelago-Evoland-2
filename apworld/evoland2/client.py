@@ -103,6 +103,9 @@ class Evoland2Context(CommonContext):
                 self.game_dir = candidate
                 break
         self.location_keys: Optional[list[str]] = None
+        # Seed du serveur (RoomInfo). Attention : CommonContext.seed_name est la seed « attendue »
+        # par le client et reste à None ; s'en servir donnait le même identifiant à toutes les parties.
+        self.server_seed: Optional[str] = None
         self.stars_required = 0
         self.found_keys: set[str] = set()
         self.goal_sent = False
@@ -134,7 +137,9 @@ class Evoland2Context(CommonContext):
         await self.send_connect()
 
     def on_package(self, cmd: str, args: dict) -> None:
-        if cmd == "Connected":
+        if cmd == "RoomInfo":
+            self.server_seed = args["seed_name"]
+        elif cmd == "Connected":
             self.location_keys = args["slot_data"]["location_keys"]
             self.stars_required = args["slot_data"].get("stars_required", 0)
             self.goal_sent = False
@@ -147,8 +152,11 @@ class Evoland2Context(CommonContext):
 
     def prepare_game_folder(self) -> None:
         """Crée le dossier d'échange et repart de zéro si c'est une nouvelle partie Archipelago."""
+        if not self.server_seed:
+            logger.error("Seed du serveur inconnue : reconnectez le client.")
+            return
         os.makedirs(os.path.join(self.ap_dir, "checks"), exist_ok=True)
-        seed_id = f"{self.seed_name}/{self.slot}"
+        seed_id = f"{self.server_seed}/{self.slot}"
         seed_file = os.path.join(self.ap_dir, "seed.txt")
         previous = open(seed_file).read().strip() if os.path.isfile(seed_file) else None
         if previous != seed_id:
@@ -159,7 +167,7 @@ class Evoland2Context(CommonContext):
             self.found_keys.clear()
             with open(seed_file, "w", newline="\n") as f:
                 f.write(seed_id)
-        config = f"{session_id(self.seed_name, self.slot):08d},"
+        config = f"{session_id(self.server_seed, self.slot):08d},"
         if self.stars_required:
             config += f"stars={self.stars_required},"  # portail du boss final bloqué sans ces étoiles
         config += ",".join(self.location_keys) + ","

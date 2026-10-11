@@ -1,6 +1,6 @@
 # Evoland 2 Setup Guide
 
-> **Version 0.1.1 (test).** Evoland 2 inside Evoland Legendary Edition (Steam).
+> **Version 0.1.2 (test).** Evoland 2 inside Evoland Legendary Edition (Steam).
 
 ## Installation
 
