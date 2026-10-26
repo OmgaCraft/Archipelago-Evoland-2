@@ -41,8 +41,11 @@ SPECIAL_MODES = ("inTactics", "inLaboMode", "inOldGame", "inDDR")
 FINAL_LEVEL = "ZFinalBoss"
 PORTAL_LEVEL = "Glitch"  # le portail du boss final est dans l'Anomalie
 STARS_TAG = ",stars="
+TRAP_LEVEL = "MagiIsland"  # Magilith passé -> présent de l'Île Maudite (voir build_trap_gate)
+TRAP_MESSAGE = ("Le Magilith reste silencieux... Il faut Velvet dans l'équipe ou le Terminal de contrôle "
+                "pour revenir de l'autre côté.")
 
-ALL_PARTS = ("base", "session", "getitem", "chest", "poll", "credits", "final")
+ALL_PARTS = ("base", "session", "getitem", "chest", "poll", "credits", "final", "trap")
 
 
 class Evoland2Patch:
@@ -308,6 +311,43 @@ class Evoland2Patch:
         b.ret(b.bool(False))
         self.final_gate = p.add_function(b)
 
+    def build_trap_gate(self) -> None:
+        """ap2_trap_gate(scriptGlobals, level, time) -> bool : true = bloquer un Magilith piège.
+
+        Le Magilith de l'Île Maudite du passé (past/MagiIsland.js, act_mag, sans condition) mène au
+        présent, derrière une porte que seule la glace de Velvet affaiblit ; le Magilith du présent
+        exige le Terminal de contrôle. Normalement on n'y arrive qu'à l'acte 2, mais avec le Bateau
+        reçu tôt on peut y aller avant que Velvet ait rejoint l'équipe : blocage définitif."""
+        p = self.p
+        b = FnBuilder(p, "ap2.trapGate", ["logic.ScriptGlobals", "String", "String"], "bool")
+        level, time = 1, 2
+        b.op("JNull", reg=level, offset="ok")
+        b.op("JNull", reg=time, offset="ok")
+        b.op("JSLt", a=b.call("String.indexOf", level, b.string(TRAP_LEVEL), b.null(self.null_int)),
+             b=b.int(0), offset="ok")
+        b.op("JSLt", a=b.call("String.indexOf", time, b.string("present"), b.null(self.null_int)),
+             b=b.int(0), offset="ok")
+        state = b.field(b.field(0, "game"), "state")
+        current = b.field(state, "currentLevel")
+        b.op("JNull", reg=current, offset="ok")
+        b.op("JSLt", a=b.call("String.indexOf", current, b.string(TRAP_LEVEL), b.null(self.null_int)),
+             b=b.int(0), offset="ok")
+        era = b.field(state, "currentTime")
+        b.op("JNull", reg=era, offset="ok")
+        plain = b.reg("i32")
+        b.op("SafeCast", dst=plain, src=era)
+        b.op("JNotEq", a=plain, b=b.int(0), offset="ok")  # seulement depuis le passé
+        b.op("JTrue", cond=b.call("logic.ScriptGlobals.hasTeam", 0, b.string("Velvet")), offset="ok")
+        b.op("JTrue", cond=b.call("logic.ScriptGlobals.hasItem", 0, b.string("NESPad"), b.null(self.null_int)),
+             offset="ok")
+        callback = b.reg(self.on_end_type)
+        b.op("StaticClosure", dst=callback, fun=self.noop)
+        b.call("logic.Logic.announce", b.field(b.field(0, "game"), "logic"), b.string(TRAP_MESSAGE), callback)
+        b.ret(b.bool(True))
+        b.label("ok")
+        b.ret(b.bool(False))
+        self.trap_gate = p.add_function(b)
+
     # --- accroches dans le code du jeu ---------------------------------------------------
     def hook_final_gate(self) -> None:
         """ScriptGlobals.goto : refuse le portail du boss final s'il manque des étoiles."""
@@ -315,6 +355,16 @@ class Evoland2Patch:
         ins = FnBuilder.for_function(self.p, goto)
         blocked = ins.reg("bool")
         ins.op("Call2", dst=blocked, fun=self.final_gate, arg0=0, arg1=1)
+        ins.op("JFalse", cond=blocked, offset="@0")
+        ins.ret_void()
+        self.p.insert_code(goto, 0, ins)
+
+    def hook_trap_gate(self) -> None:
+        """ScriptGlobals.goto(level, anchor, time) : refuse le Magilith piège de l'Île Maudite."""
+        goto = self.p.fn("logic.ScriptGlobals.goto")
+        ins = FnBuilder.for_function(self.p, goto)
+        blocked = ins.reg("bool")
+        ins.op("Call3", dst=blocked, fun=self.trap_gate, arg0=0, arg1=1, arg2=3)
         ins.op("JFalse", cond=blocked, offset="@0")
         ins.ret_void()
         self.p.insert_code(goto, 0, ins)
@@ -393,6 +443,9 @@ def build(bc: Bytecode, parts: tuple = ALL_PARTS) -> None:
     if "final" in parts:
         patch.build_final_gate()
         patch.hook_final_gate()
+    if "trap" in parts:
+        patch.build_trap_gate()
+        patch.hook_trap_gate()
 
 
 if __name__ == "__main__":

@@ -78,3 +78,11 @@ Objets clés notables : `TimeStone` (futur/Pyramid), `WingBroken` (futur/Pyramid
 - L'objet `Gravity` n'est lu nulle part dans le code (pas une capacité).
 - Référence externe : tableur communautaire « Evoland 2 Items, Flags and Logic »
   (https://docs.google.com/spreadsheets/d/1z8olt25UQ6uwJfjUcqqZWrySkZK8X4EECW4i_wOoP7k).
+- Piège (v0.1.3) : le Magilith de l'Île Maudite du passé (past/MagiIsland.js, `act_mag`, sans
+  condition) mène au présent derrière une porte que seule Velvet affaiblit, et le Magilith du présent
+  exige `NESPad`. Avec le Bateau reçu tôt, on y arrive avant que Velvet rejoigne l'équipe (cinématique
+  `futurToPresent` de futur/MagiIsland.js) : blocage. Le patch refuse ce `goto` sans Velvet ni NESPad
+  (`ap2.trapGate`). Les autres Magiliths (Demonia, Caverne glacée, Windy Valley/ère des Magi) forment
+  des boucles sans condition : pas de piège.
+- Sauvegardes : `tools/evo2_save_fix.py` (sérialisation Haxe + CRC hxd.Save). Au chargement, une ancre
+  `startAnchor` l'emporte sur heroX/heroY (Game.hx:608) : `--move niveau:époque:ancre` sort d'un blocage.

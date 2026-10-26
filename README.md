@@ -5,7 +5,7 @@ Monde [Archipelago](https://archipelago.gg) (randomizer multi-jeux) pour **Evola
 
 *English version below.*
 
-**Version 0.1.2** : première version jouable, en test (voir le journal des versions en bas).
+**Version 0.1.3** : première version jouable, en test (voir le journal des versions en bas).
 
 ## Ce qui est mélangé
 
@@ -84,6 +84,10 @@ puis lancer `tools/evo2_catalog.py`, `tools/evo2_build_locations.py` et `tools/e
 
 ## Journal des versions
 
+- **0.1.3** : patch du jeu — le Magilith de l'Île Maudite du passé ne mène plus au présent sans Velvet
+  ni Terminal de contrôle (avec le Bateau reçu tôt, on se retrouvait enfermé derrière la porte que
+  seule Velvet peut briser). **Reconstruire `hlboot.dat`.** Nouvel outil `tools/evo2_save_fix.py` pour
+  réparer une sauvegarde (objets `` de la 0.1.0, ou héros bloqué : `--move niveau:époque:ancre`).
 - **0.1.2** : correctif du client — l'identifiant de partie était calculé avec une seed vide
   (`ctx.seed_name` reste à `None` dans Archipelago) : toutes les parties avaient le même identifiant et
   les checks d'une ancienne partie étaient envoyés à la nouvelle. La seed est maintenant lue dans
@@ -100,7 +104,7 @@ puis lancer `tools/evo2_catalog.py`, `tools/evo2_build_locations.py` et `tools/e
 # Archipelago – Evoland 2 (English)
 
 [Archipelago](https://archipelago.gg) world for **Evoland 2** in **Evoland Legendary Edition** (Steam).
-**Version 0.1.2**, first playable test version.
+**Version 0.1.3**, first playable test version.
 
 - **143 locations** (every chest, quest reward and ground pickup), shuffled with the whole multiworld,
   story items included. Exceptions: the prison chest returning your weapon, Mr Mudwell's gold deposit,

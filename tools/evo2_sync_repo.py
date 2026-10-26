@@ -26,6 +26,7 @@ FILES = [
     "tools/evo2_item_usage.py",
     "tools/evo2_code_refs.py",
     "tools/evo2_sync_repo.py",
+    "tools/evo2_save_fix.py",
     "docs/NOTES_EVOLAND2.md",
 ]
 
