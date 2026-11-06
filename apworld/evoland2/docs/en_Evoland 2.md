@@ -18,6 +18,10 @@ the Old House Key: leaving the village requires opening the chest in that house.
 
 Defeat the final boss. Optionally, the way to the final boss can require a number of Stars.
 
+## Is Death Link supported?
+
+Yes: turn on the `death_link` option (or use `/deathlink` in the client).
+
 ## Which versions of the game are supported?
 
 Evoland 2 inside Evoland Legendary Edition (Steam).

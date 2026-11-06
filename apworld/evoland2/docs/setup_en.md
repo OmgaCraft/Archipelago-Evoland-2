@@ -1,6 +1,6 @@
 # Evoland 2 Setup Guide
 
-> **Version 0.1.3 (test).** Evoland 2 inside Evoland Legendary Edition (Steam).
+> **Version 0.1.4 (test).** Evoland 2 inside Evoland Legendary Edition (Steam).
 
 ## Installation
 
@@ -23,3 +23,10 @@
 
 - `/gamedir [folder]`: show or change the game folder.
 - `/status`: show the link state with the game.
+- `/deathlink`: turn Death Link on or off for this client session.
+
+## Death Link
+
+With the `death_link: true` option (or the `/deathlink` command), your hero's death kills the other
+linked players, and the other way round. A death received during a cutscene or a minigame is applied as
+soon as the hero is free again; it brings up the "Continue" screen.

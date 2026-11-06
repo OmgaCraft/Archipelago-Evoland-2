@@ -86,3 +86,9 @@ Objets clés notables : `TimeStone` (futur/Pyramid), `WingBroken` (futur/Pyramid
   des boucles sans condition : pas de piège.
 - Sauvegardes : `tools/evo2_save_fix.py` (sérialisation Haxe + CRC hxd.Save). Au chargement, une ancre
   `startAnchor` l'emporte sur heroX/heroY (Game.hx:608) : `--move niveau:époque:ancre` sort d'un blocage.
+- Death Link (v0.1.4) : toutes les morts du héros (vue de dessus `ent.z`, plateforme `ent.p`, beat'em up
+  `ent.dd`, combats du Labo `ent.l`, `ent.t`, Street Fighter) finissent dans `logic.Logic.die`
+  (fn@3137 : « if (died) return; died = true; » puis menu « Continuer ») ; `died` n'est jamais remis à
+  false (Logic est recréé au rechargement). Envoi : accroche après l'op 3 → `checks/deathlink.txt`.
+  Réception : `deathlink.txt` (compteur écrit par le client) lu par le poll ; on tue en appelant
+  `Logic.die` (+ heroApi.setLock), drapeau global anti-écho. Valeur trouvée au lancement ignorée.

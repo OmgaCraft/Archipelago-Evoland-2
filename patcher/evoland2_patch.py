@@ -13,9 +13,12 @@ Protocole par fichiers, dans le dossier `archipelago2/` du jeu (créé par le cl
                                         card:<carte> ; n = n-ième fois dans cette sauvegarde
       goal                              générique de fin
       mismatch                          la sauvegarde appartient à une autre partie Archipelago
+      deathlink                         le héros vient de mourir (Death Link ; le client l'efface)
 - `archipelago2/items.txt` (client -> jeu) : tous les items reçus, dans l'ordre, un par ligne :
       i:<objet>   c:<carte>   g:<or>
       Le nombre d'items déjà appliqués est stocké dans la sauvegarde (state.globalFlags).
+- `archipelago2/deathlink.txt` (client -> jeu) : nombre de morts Death Link reçues ; quand il change,
+      le héros meurt (dès qu'il est libre). La valeur trouvée au lancement du jeu est ignorée.
 
 Pièges du JIT de cette version de HashLink (« JIT ERROR 0 (jit.c line 524) » au lancement) :
 - pas de variable globale de type bool (utiliser un i32 0/1) ;
@@ -41,11 +44,13 @@ SPECIAL_MODES = ("inTactics", "inLaboMode", "inOldGame", "inDDR")
 FINAL_LEVEL = "ZFinalBoss"
 PORTAL_LEVEL = "Glitch"  # le portail du boss final est dans l'Anomalie
 STARS_TAG = ",stars="
+DEATH_KEY = "deathlink"
+DEATH_FILE = "deathlink.txt"
 TRAP_LEVEL = "MagiIsland"  # Magilith passé -> présent de l'Île Maudite (voir build_trap_gate)
 TRAP_MESSAGE = ("Le Magilith reste silencieux... Il faut Velvet dans l'équipe ou le Terminal de contrôle "
                 "pour revenir de l'autre côté.")
 
-ALL_PARTS = ("base", "session", "getitem", "chest", "poll", "credits", "final", "trap")
+ALL_PARTS = ("base", "session", "getitem", "chest", "death", "poll", "credits", "final", "trap")
 
 
 class Evoland2Patch:
@@ -58,6 +63,9 @@ class Evoland2Patch:
         self.g_timer = p.add_global("i32")
         self.g_granting = p.add_global("i32")  # 0/1 : le JIT refuse les globales bool
         self.g_chest = p.add_global("String")
+        self.g_dl_init = p.add_global("i32")  # Death Link : compteur lu au moins une fois (0/1)
+        self.g_dl_seen = p.add_global("i32")  # Death Link : dernière valeur de deathlink.txt traitée
+        self.g_dl_kill = p.add_global("i32")  # Death Link : mort provoquée par nous (ne pas la renvoyer)
 
     # --- petits outils de génération ----------------------------------------------------
     def concat(self, b: FnBuilder, *pieces: int) -> int:
@@ -203,6 +211,56 @@ class Evoland2Patch:
         b.ret(b.bool(False))
         self.on_get_item = p.add_function(b)
 
+    def build_death_link(self) -> None:
+        p = self.p
+        # ap2_on_death(logic) : au début de Logic.die (après « déjà mort ? »), signale la mort au client
+        b = FnBuilder(p, "ap2.onDeath", ["logic.Logic"], "void")
+        b.op("JEq", a=b.get_global(self.g_dl_kill), b=b.int(0), offset="envoyer")
+        self.set_global(b, self.g_dl_kill, b.int(0))  # mort reçue d'un autre joueur : pas d'écho
+        b.ret_void()
+        b.label("envoyer")
+        b.call(self.send, b.string(DEATH_KEY))
+        b.ret_void()
+        self.on_death = p.add_function(b)
+
+        # ap2_death_tick(game) -> bool : tue le héros quand le compteur deathlink.txt change
+        # (true = tué maintenant). Une mort reçue pendant une cinématique ou un mini-jeu attend.
+        b = FnBuilder(p, "ap2.deathTick", ["Game"], "bool")
+        game = 0
+        count = b.int(0)
+        text = b.call(self.read, b.string(AP_DIR + DEATH_FILE))
+        b.op("JNull", reg=text, offset="compte_lu")
+        parsed = b.call("$Std.parseInt", text)
+        b.op("JNull", reg=parsed, offset="compte_lu")
+        b.op("SafeCast", dst=count, src=parsed)
+        b.label("compte_lu")
+        b.op("JNotEq", a=b.get_global(self.g_dl_init), b=b.int(0), offset="deja_lu")
+        # première lecture (lancement du jeu) : les morts déjà reçues ne comptent pas
+        self.set_global(b, self.g_dl_init, b.int(1))
+        self.set_global(b, self.g_dl_seen, count)
+        b.op("JAlways", offset="rien")
+        b.label("deja_lu")
+        b.op("JEq", a=count, b=b.get_global(self.g_dl_seen), offset="rien")
+        logic = b.field(game, "logic")
+        b.op("JFalse", cond=b.field(logic, "died"), offset="vivant")
+        self.set_global(b, self.g_dl_seen, count)  # déjà mort : la mort reçue est consommée
+        b.op("JAlways", offset="rien")
+        b.label("vivant")
+        api = b.field(game, "heroApi")
+        locked = b.reg("bool")
+        b.op("CallMethod", dst=locked, field=p.field(b.regs[api], "isLocked"), args=[api])
+        b.op("JTrue", cond=locked, offset="rien")
+        for mode in SPECIAL_MODES:
+            b.op("JTrue", cond=b.field(game, mode), offset="rien")
+        self.set_global(b, self.g_dl_seen, count)
+        self.set_global(b, self.g_dl_kill, b.int(1))
+        b.op("CallMethod", dst=b.reg("void"), field=p.field(b.regs[api], "setLock"), args=[api, b.bool(True)])
+        b.call("logic.Logic.die", logic)
+        b.ret(b.bool(True))
+        b.label("rien")
+        b.ret(b.bool(False))
+        self.death_tick = p.add_function(b)
+
     def build_poll(self) -> None:
         """ap2_poll(game) : appelé à chaque image par Game.update, applique les items reçus."""
         p = self.p
@@ -219,14 +277,17 @@ class Evoland2Patch:
         b.op("JNull", reg=b.field(game, "hero"), offset="fin")
         api = b.field(game, "heroApi")
         b.op("JNull", reg=api, offset="fin")
+        cfg = b.call(self.read, b.string(AP_DIR + "config.txt"))
+        b.op("JNull", reg=cfg, offset="fin")
+        b.op("JFalse", cond=b.call(self.session_ok, game, cfg), offset="fin")
+        if getattr(self, "death_tick", None) is not None:
+            b.op("JTrue", cond=b.call(self.death_tick, game), offset="fin")
+        # items : uniquement quand le héros est libre, hors modes spéciaux
         locked = b.reg("bool")
         b.op("CallMethod", dst=locked, field=p.field(b.regs[api], "isLocked"), args=[api])
         b.op("JTrue", cond=locked, offset="fin")
         for mode in SPECIAL_MODES:
             b.op("JTrue", cond=b.field(game, mode), offset="fin")
-        cfg = b.call(self.read, b.string(AP_DIR + "config.txt"))
-        b.op("JNull", reg=cfg, offset="fin")
-        b.op("JFalse", cond=b.call(self.session_ok, game, cfg), offset="fin")
         items = b.call(self.read, b.string(AP_DIR + "items.txt"))
         b.op("JNull", reg=items, offset="fin")
         b.op("JSLt", a=b.field(items, "length"), b=b.int(3), offset="fin")
@@ -369,6 +430,14 @@ class Evoland2Patch:
         ins.ret_void()
         self.p.insert_code(goto, 0, ins)
 
+    def hook_death(self) -> None:
+        """Logic.die (fin commune de toutes les morts du héros) : Death Link sortant.
+        Inséré après « if (died) return; » (op 3) pour ne signaler chaque mort qu'une fois."""
+        die = self.p.fn("logic.Logic.die")
+        ins = FnBuilder.for_function(self.p, die)
+        ins.op("Call1", dst=ins.reg("void"), fun=self.on_death, arg0=0)
+        self.p.insert_code(die, 3, ins)
+
     def hook_get_item(self) -> None:
         """getItem : les objets mélangés deviennent des checks."""
         ins = FnBuilder.for_function(self.p, self.get_item)
@@ -435,6 +504,9 @@ def build(bc: Bytecode, parts: tuple = ALL_PARTS) -> None:
         patch.hook_get_item()
         if "chest" in parts:
             patch.hook_chests()
+    if "death" in parts:
+        patch.build_death_link()
+        patch.hook_death()
     if "poll" in parts:
         patch.build_poll()
         patch.hook_update()

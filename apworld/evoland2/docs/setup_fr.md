@@ -1,6 +1,6 @@
 # Guide d'installation d'Evoland 2
 
-> **Version 0.1.3 (test).** Evoland 2 dans Evoland Legendary Edition (Steam).
+> **Version 0.1.4 (test).** Evoland 2 dans Evoland Legendary Edition (Steam).
 
 ## Installation
 
@@ -34,3 +34,10 @@ la vieille maison : la sortie du village exige d'ouvrir le coffre de cette maiso
 
 - `/gamedir [dossier]` : affiche ou change le dossier du jeu.
 - `/status` : état de la liaison avec le jeu.
+- `/deathlink` : active ou désactive le Death Link pour cette session du client.
+
+## Death Link
+
+Avec l'option `death_link: true` (ou la commande `/deathlink`), la mort de votre héros tue les autres
+joueurs liés, et inversement. Une mort reçue pendant une cinématique ou un mini-jeu s'applique dès que le
+héros redevient libre ; elle fait apparaître l'écran « Continuer ».

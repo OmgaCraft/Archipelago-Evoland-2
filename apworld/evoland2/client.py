@@ -4,7 +4,9 @@ Le jeu patché échange avec ce client par des fichiers dans <dossier du jeu>/ar
 - config.txt : identifiant de partie (8 chiffres), étoiles exigées pour le boss final (stars=N),
   puis la liste des locations mélangées ;
 - items.txt  : tous les items reçus, dans l'ordre, un par ligne (i:<objet>, c:<carte>) ;
-- checks/    : un fichier vide par location vérifiée (écrit par le jeu) ;
+- checks/    : un fichier vide par location vérifiée (écrit par le jeu) ; checks/deathlink.txt = le
+               héros est mort (Death Link) ;
+- deathlink.txt : nombre de morts Death Link reçues (le jeu tue le héros quand il change) ;
 - seed.txt   : la partie Archipelago associée (pour repartir de zéro avec une nouvelle partie).
 """
 import asyncio
@@ -29,6 +31,8 @@ GAME_FOLDER_NAME = "Evoland Legendary Edition"
 EXCHANGE_FOLDER = "archipelago2"
 PATCH_MARKER = b"archipelago2/checks/"
 STORE_KEY = "evoland2"
+DEATH_KEY = "deathlink"  # checks/deathlink.txt : écrit par le jeu à chaque mort du héros
+DEATH_FILE = "deathlink.txt"  # compteur des morts reçues, lu par le jeu
 
 
 def session_id(seed_name: str, slot: int) -> int:
@@ -82,6 +86,13 @@ class Evoland2CommandProcessor(ClientCommandProcessor):
             self.ctx.on_game_dir_changed()
         logger.info(f"Dossier du jeu : {self.ctx.game_dir or 'introuvable'}")
 
+    def _cmd_deathlink(self) -> None:
+        """Active ou désactive le Death Link (sans régénérer la partie)."""
+        ctx = self.ctx
+        ctx.death_link = ctx.death_link_choice = not ctx.death_link
+        Utils.async_start(ctx.update_death_link(ctx.death_link))
+        logger.info(f"Death Link {'activé' if ctx.death_link else 'désactivé'}.")
+
     def _cmd_status(self) -> None:
         """Affiche l'état de la liaison avec le jeu."""
         ctx = self.ctx
@@ -107,6 +118,8 @@ class Evoland2Context(CommonContext):
         # par le client et reste à None ; s'en servir donnait le même identifiant à toutes les parties.
         self.server_seed: Optional[str] = None
         self.stars_required = 0
+        self.death_link = False
+        self.death_link_choice: Optional[bool] = None  # choix fait avec /deathlink (prioritaire)
         self.found_keys: set[str] = set()
         self.goal_sent = False
         self.mismatch_reported = False
@@ -142,6 +155,10 @@ class Evoland2Context(CommonContext):
         elif cmd == "Connected":
             self.location_keys = args["slot_data"]["location_keys"]
             self.stars_required = args["slot_data"].get("stars_required", 0)
+            self.death_link = bool(args["slot_data"].get("death_link", False))
+            if self.death_link_choice is not None:
+                self.death_link = self.death_link_choice
+            asyncio.create_task(self.update_death_link(self.death_link))
             self.goal_sent = False
             if not self.game_dir:
                 logger.error("Dossier du jeu introuvable : utilisez /gamedir <dossier du jeu>.")
@@ -156,6 +173,10 @@ class Evoland2Context(CommonContext):
             logger.error("Seed du serveur inconnue : reconnectez le client.")
             return
         os.makedirs(os.path.join(self.ap_dir, "checks"), exist_ok=True)
+        # une mort survenue pendant que le client n'était pas connecté ne doit pas partir en retard
+        stale_death = os.path.join(self.ap_dir, "checks", DEATH_KEY + ".txt")
+        if os.path.isfile(stale_death):
+            os.remove(stale_death)
         seed_id = f"{self.server_seed}/{self.slot}"
         seed_file = os.path.join(self.ap_dir, "seed.txt")
         previous = open(seed_file).read().strip() if os.path.isfile(seed_file) else None
@@ -174,6 +195,20 @@ class Evoland2Context(CommonContext):
         with open(os.path.join(self.ap_dir, "config.txt"), "w", encoding="utf-8", newline="\n") as f:
             f.write(config)
         self.write_items()
+
+    def on_deathlink(self, data: dict) -> None:
+        super().on_deathlink(data)
+        if not self.death_link or not self.game_dir:
+            return
+        # compteur toujours croissant : le jeu tue le héros dès que la valeur change
+        path = os.path.join(self.ap_dir, DEATH_FILE)
+        try:
+            with open(path, encoding="utf-8") as f:
+                count = int(f.read().strip() or 0)
+        except (OSError, ValueError):
+            count = 0
+        with open(path, "w", encoding="utf-8", newline="\n") as f:
+            f.write(str(count + 1))
 
     def write_items(self) -> None:
         if not self.game_dir or self.location_keys is None:
@@ -223,6 +258,11 @@ async def game_watcher(ctx: Evoland2Context) -> None:
             if not name.endswith(".txt"):
                 continue
             key = name[:-4]
+            if key == DEATH_KEY:
+                os.remove(os.path.join(checks_dir, name))
+                if ctx.death_link:
+                    await ctx.send_death(f"{ctx.player_names[ctx.slot]} est mort dans Evoland 2.")
+                continue
             if key in ctx.found_keys:
                 continue
             ctx.found_keys.add(key)

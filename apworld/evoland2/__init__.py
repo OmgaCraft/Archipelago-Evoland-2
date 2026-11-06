@@ -19,7 +19,7 @@ from .locations import location_name_groups, location_name_to_id
 from .options import Evoland2Options, evoland2_option_groups
 from .regions import create_regions
 
-APWORLD_VERSION = "0.1.3"
+APWORLD_VERSION = "0.1.4"
 
 # Locations dont le contenu reste celui d'origine (le check est quand même envoyé) :
 # la sortie de Nibiru exige d'ouvrir la vieille maison, donc la clé doit venir du pêcheur.
@@ -97,4 +97,5 @@ class Evoland2World(World):
             "apworld_version": APWORLD_VERSION,
             "location_keys": [key for _name, key, _region, _record, _req in LOCATIONS],
             "stars_required": self.stars_required,
+            "death_link": bool(self.options.death_link),
         }

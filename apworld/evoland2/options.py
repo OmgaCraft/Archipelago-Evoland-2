@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Options import Choice, OptionGroup, PerGameCommonOptions, Range
+from Options import Choice, DeathLink, OptionGroup, PerGameCommonOptions, Range
 
 
 class Goal(Choice):
@@ -25,6 +25,7 @@ class StarsRequired(Range):
 
 evoland2_option_groups = [
     OptionGroup("Goal", [Goal, StarsRequired]),
+    OptionGroup("Multiworld", [DeathLink]),
 ]
 
 
@@ -32,3 +33,4 @@ evoland2_option_groups = [
 class Evoland2Options(PerGameCommonOptions):
     goal: Goal
     stars_required: StarsRequired
+    death_link: DeathLink
